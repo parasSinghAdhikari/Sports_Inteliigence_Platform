@@ -48,7 +48,7 @@ React + Tailwind Frontend (Vercel)
 | Backend | FastAPI + Pydantic |
 | Frontend | React + Vite + Tailwind CSS |
 | Charts | Recharts |
-| ML | Scikit-learn, XGBoost |
+| ML | Scikit-learn (planned for M12) |
 | Deploy | Vercel (FE) + Render (BE) |
 
 ## 📊 Data Sources
@@ -92,9 +92,24 @@ python scripts/extract_fbref.py
 # Step 2: Validate data quality
 python scripts/validate_data.py
 
-# Step 3: Load to database (after DB setup)
+# Step 3: Transform raw -> clean parquet
+python scripts/transform_data.py
+
+# Step 4: Load to database (after DB setup)
 python scripts/load_database.py
 ```
+
+### Match Intelligence (M10) Data
+Per-match stats feed the `/api/intel*` endpoints. Run after the main pipeline
+(needs teams + matches loaded). Run the extractor in your own terminal — it
+uses a real Chrome browser and FBref may block headless instances.
+```bash
+python scripts/extract_match_stats.py   # writes data/processed/match_stats.parquet
+python scripts/load_match_stats.py      # creates + populates the match_stats table
+```
+> Note: match-stats rows carry `team` + `date` (not a game_id) and are joined to
+> `matches` on `(match_date, team_name)`. Rows without a resolvable team are skipped
+> and logged — if the extractor reports many missing teams, re-run it interactively.
 
 ### Frontend
 ```bash

@@ -6,9 +6,14 @@ home/away splits per team, head-to-head records,
 and season form/trend data.
 """
 from fastapi import APIRouter, Depends, Query
+import psycopg2
 from app.database import get_db
 
 router = APIRouter()
+
+# Consistent message returned when the match_stats table hasn't been loaded yet
+# (created by scripts/load_match_stats.py). Avoids 500 errors on missing table.
+NO_MATCH_STATS_MSG = "Run extract_match_stats.py + load_match_stats.py first"
 
 
 @router.get("/match/{game_id}")
@@ -34,17 +39,20 @@ def match_detail(game_id: str, db=Depends(get_db)):
         match = dict(match)
 
         # Team stats for this match
-        cur.execute("""
-            SELECT t.name AS team, ms.venue, ms.result,
-                   ms.shots, ms.shots_on_target,
-                   ms.goals_for, ms.goals_against,
-                   ms.fouls, ms.yellow_cards, ms.red_cards, ms.pen_attempts
-            FROM match_stats ms
-            JOIN teams t ON t.id = ms.team_id
-            WHERE ms.match_id = %s
-            ORDER BY ms.venue
-        """, (match["id"],))
-        stats = [dict(r) for r in cur.fetchall()]
+        try:
+            cur.execute("""
+                SELECT t.name AS team, ms.venue, ms.result,
+                       ms.shots, ms.shots_on_target,
+                       ms.goals_for, ms.goals_against,
+                       ms.fouls, ms.yellow_cards, ms.red_cards, ms.pen_attempts
+                FROM match_stats ms
+                JOIN teams t ON t.id = ms.team_id
+                WHERE ms.match_id = %s
+                ORDER BY ms.venue
+            """, (match["id"],))
+            stats = [dict(r) for r in cur.fetchall()]
+        except psycopg2.errors.UndefinedTable:
+            return {"match": match, "team_stats": [], "message": NO_MATCH_STATS_MSG}
 
     return {"match": match, "team_stats": stats}
 
@@ -52,28 +60,31 @@ def match_detail(game_id: str, db=Depends(get_db)):
 @router.get("/team/{team_id}/home-away")
 def home_away_split(team_id: int, db=Depends(get_db)):
     """Home vs Away performance split for a team."""
-    with db.cursor() as cur:
-        cur.execute("""
-            SELECT
-                ms.venue,
-                COUNT(*)                                        AS games,
-                SUM(CASE WHEN ms.result = 'W' THEN 1 ELSE 0 END)  AS wins,
-                SUM(CASE WHEN ms.result = 'D' THEN 1 ELSE 0 END)  AS draws,
-                SUM(CASE WHEN ms.result = 'L' THEN 1 ELSE 0 END)  AS losses,
-                SUM(ms.goals_for)                               AS goals_for,
-                SUM(ms.goals_against)                           AS goals_against,
-                ROUND(AVG(ms.shots)::numeric, 1)                AS avg_shots,
-                ROUND(AVG(ms.shots_on_target)::numeric, 1)      AS avg_sot,
-                ROUND(AVG(ms.fouls)::numeric, 1)                AS avg_fouls
-            FROM match_stats ms
-            WHERE ms.team_id = %s
-            GROUP BY ms.venue
-            ORDER BY ms.venue
-        """, (team_id,))
-        rows = cur.fetchall()
+    try:
+        with db.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    ms.venue,
+                    COUNT(*)                                        AS games,
+                    SUM(CASE WHEN ms.result = 'W' THEN 1 ELSE 0 END)  AS wins,
+                    SUM(CASE WHEN ms.result = 'D' THEN 1 ELSE 0 END)  AS draws,
+                    SUM(CASE WHEN ms.result = 'L' THEN 1 ELSE 0 END)  AS losses,
+                    SUM(ms.goals_for)                               AS goals_for,
+                    SUM(ms.goals_against)                           AS goals_against,
+                    ROUND(AVG(ms.shots)::numeric, 1)                AS avg_shots,
+                    ROUND(AVG(ms.shots_on_target)::numeric, 1)      AS avg_sot,
+                    ROUND(AVG(ms.fouls)::numeric, 1)                AS avg_fouls
+                FROM match_stats ms
+                WHERE ms.team_id = %s
+                GROUP BY ms.venue
+                ORDER BY ms.venue
+            """, (team_id,))
+            rows = cur.fetchall()
 
-        cur.execute("SELECT name FROM teams WHERE id = %s", (team_id,))
-        team = cur.fetchone()
+            cur.execute("SELECT name FROM teams WHERE id = %s", (team_id,))
+            team = cur.fetchone()
+    except psycopg2.errors.UndefinedTable:
+        return {"team": None, "splits": [], "message": NO_MATCH_STATS_MSG}
 
     return {
         "team": dict(team) if team else None,
@@ -110,7 +121,6 @@ def head_to_head(
         if m["home_score"] is None:
             continue
         if m["home_score"] > m["away_score"]:
-            (t1_wins if t1_home else t2_wins).__add__(1)
             if t1_home: t1_wins += 1
             else: t2_wins += 1
         elif m["away_score"] > m["home_score"]:
@@ -129,38 +139,46 @@ def head_to_head(
 @router.get("/team/{team_id}/shooting")
 def team_shooting_stats(team_id: int, db=Depends(get_db)):
     """Per-match shooting stats for a team across the season."""
-    with db.cursor() as cur:
-        cur.execute("""
-            SELECT m.matchweek, m.match_date,
-                   opp.name AS opponent,
-                   ms.venue, ms.result,
-                   ms.shots, ms.shots_on_target,
-                   ms.goals_for, ms.goals_against,
-                   ms.fouls, ms.yellow_cards
-            FROM match_stats ms
-            JOIN matches m ON m.id = ms.match_id
-            JOIN teams opp ON opp.id = (
-                CASE WHEN m.home_team_id = %s THEN m.away_team_id ELSE m.home_team_id END
-            )
-            WHERE ms.team_id = %s AND m.match_date IS NOT NULL
-            ORDER BY m.match_date
-        """, (team_id, team_id))
-        rows = [dict(r) for r in cur.fetchall()]
+    try:
+        with db.cursor() as cur:
+            cur.execute("""
+                SELECT m.matchweek, m.match_date,
+                       opp.name AS opponent,
+                       ms.venue, ms.result,
+                       ms.shots, ms.shots_on_target,
+                       ms.goals_for, ms.goals_against,
+                       ms.fouls, ms.yellow_cards
+                FROM match_stats ms
+                JOIN matches m ON m.id = ms.match_id
+                JOIN teams opp ON opp.id = (
+                    CASE WHEN m.home_team_id = %s THEN m.away_team_id ELSE m.home_team_id END
+                )
+                WHERE ms.team_id = %s AND m.match_date IS NOT NULL
+                ORDER BY m.match_date
+            """, (team_id, team_id))
+            rows = [dict(r) for r in cur.fetchall()]
 
-        # Season averages
-        cur.execute("""
-            SELECT
-                ROUND(AVG(shots)::numeric, 1)           AS avg_shots,
-                ROUND(AVG(shots_on_target)::numeric, 1) AS avg_sot,
-                ROUND(AVG(fouls)::numeric, 1)           AS avg_fouls,
-                SUM(yellow_cards)                       AS total_yellows,
-                SUM(red_cards)                          AS total_reds
-            FROM match_stats WHERE team_id = %s
-        """, (team_id,))
-        avgs = dict(cur.fetchone())
+            # Season averages
+            cur.execute("""
+                SELECT
+                    ROUND(AVG(shots)::numeric, 1)           AS avg_shots,
+                    ROUND(AVG(shots_on_target)::numeric, 1) AS avg_sot,
+                    ROUND(AVG(fouls)::numeric, 1)           AS avg_fouls,
+                    SUM(yellow_cards)                       AS total_yellows,
+                    SUM(red_cards)                          AS total_reds
+                FROM match_stats WHERE team_id = %s
+            """, (team_id,))
+            avgs = dict(cur.fetchone())
 
-        cur.execute("SELECT name FROM teams WHERE id = %s", (team_id,))
-        team = dict(cur.fetchone())
+            cur.execute("SELECT name FROM teams WHERE id = %s", (team_id,))
+            team = dict(cur.fetchone())
+    except psycopg2.errors.UndefinedTable:
+        return {
+            "team": None,
+            "season_averages": {},
+            "matches": [],
+            "message": NO_MATCH_STATS_MSG,
+        }
 
     return {"team": team, "season_averages": avgs, "matches": rows}
 
@@ -194,4 +212,4 @@ def shooting_leaders(db=Depends(get_db)):
         return {"teams": rows}
     except Exception:
         # match_stats table not yet created — return empty
-        return {"teams": [], "message": "Run extract_match_stats.py + load_match_stats.py first"}
+        return {"teams": [], "message": NO_MATCH_STATS_MSG}

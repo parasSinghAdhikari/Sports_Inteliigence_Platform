@@ -27,7 +27,6 @@ from pathlib import Path
 import pandas as pd
 import psycopg2
 import psycopg2.extras
-from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
 
@@ -53,10 +52,6 @@ if not DATABASE_URL:
 def get_conn():
     """Return a raw psycopg2 connection."""
     return psycopg2.connect(DATABASE_URL)
-
-
-def get_engine():
-    return create_engine(DATABASE_URL, pool_pre_ping=True)
 
 
 def clean_df(df: pd.DataFrame) -> pd.DataFrame:

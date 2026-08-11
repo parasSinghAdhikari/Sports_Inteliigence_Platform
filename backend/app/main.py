@@ -20,8 +20,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],       # tighten in production
-    allow_credentials=True,
+    # Dev: allow any origin. NOTE: keep allow_credentials=False here — the
+    # "allow_origins=['*'] + allow_credentials=True" combination is rejected
+    # by browsers and the API uses no cookies/auth, so credentials aren't needed.
+    # In production, replace "*" with the explicit frontend origin(s).
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

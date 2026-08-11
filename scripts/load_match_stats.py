@@ -1,8 +1,13 @@
 """
 M10 — Load match stats into PostgreSQL.
 
-Reads data/processed/match_stats.parquet and populates the match_stats table.
-Links each row to the existing matches table via game_id.
+Reads data/processed/match_stats.parquet (produced by extract_match_stats.py)
+and populates the match_stats table.
+
+Join strategy:
+  FBref match-stats rows do not carry a game_id; they carry `team`, `date` and
+  `venue`. In the PL each team plays exactly one match per match-day, so the
+  composite key (match_date, team_name) uniquely identifies the match.
 
 Run AFTER extract_match_stats.py.
 """
@@ -19,8 +24,8 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-ROOT        = Path(__file__).resolve().parent.parent
-PROC_DIR    = ROOT / "data" / "processed"
+ROOT     = Path(__file__).resolve().parent.parent
+PROC_DIR = ROOT / "data" / "processed"
 
 load_dotenv(ROOT / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -51,7 +56,9 @@ CREATE INDEX IF NOT EXISTS ix_ms_match  ON match_stats(match_id);
 CREATE INDEX IF NOT EXISTS ix_ms_team   ON match_stats(team_id);
 """
 
-def clean(v):
+
+def clean_int(v):
+    """Coerce a value to int or None."""
     if v is None:
         return None
     if isinstance(v, float) and pd.isna(v):
@@ -60,6 +67,21 @@ def clean(v):
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+def norm_name(v):
+    """Normalise a team name string for map lookup."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s if s and s.lower() != "nan" else None
+
+
+def norm_date(v):
+    """Return 'YYYY-MM-DD' or None."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    return str(v)[:10]
 
 
 def main():
@@ -76,61 +98,67 @@ def main():
     log.info("  Loaded parquet: %d rows, cols: %s", len(df), df.columns.tolist())
 
     conn = psycopg2.connect(DATABASE_URL)
-    cur  = conn.cursor()
+    conn.autocommit = True
+    cur = conn.cursor()
 
     # Create table
     log.info("Creating match_stats table...")
     cur.execute(DDL_MATCH_STATS)
-    conn.commit()
     log.info("  Table ready.")
 
-    # Build lookup maps
-    cur.execute("SELECT id, game_id FROM matches WHERE game_id IS NOT NULL")
-    match_map = {row[1]: row[0] for row in cur.fetchall()}
-
+    # team name -> team_id
     cur.execute("SELECT id, name FROM teams")
     team_map = {row[1]: row[0] for row in cur.fetchall()}
+    log.info("  team_map: %d teams", len(team_map))
 
-    log.info("  match_map: %d entries, team_map: %d entries", len(match_map), len(team_map))
+    # (match_date_iso, team_name) -> match_id
+    cur.execute("""
+    SELECT m.id, to_char(m.match_date, 'YYYY-MM-DD') AS mdate,
+           ht.name AS home, ht.id AS home_id,
+           at.name AS away, at.id AS away_id
+    FROM matches m
+    JOIN teams ht ON ht.id = m.home_team_id
+    JOIN teams at ON at.id = m.away_team_id
+    WHERE m.match_date IS NOT NULL
+    """)
+    home_lookup = {}   # (date, away_name) -> (match_id, home_team_id)  — use when THIS row's venue == Home
+    away_lookup = {}   # (date, home_name) -> (match_id, away_team_id)  — use when THIS row's venue == Away
+    for mid, mdate, home, home_id, away, away_id in cur.fetchall():
+        if not mdate:
+            continue
+        home_lookup[(mdate, away)] = (mid, home_id)
+        away_lookup[(mdate, home)] = (mid, away_id)
 
     # Build records
     records = []
-    skipped = 0
+    skipped_no_match = 0
+    skipped_no_team = 0
+    bad_date = 0
 
     for _, row in df.iterrows():
-        # game key is the index 'game' or a column
-        game_key = str(row.get("game", "")).split(" ")[-1] if "game" in df.columns else None
-
-        # Try to match by game_id (8-char hex in schedule)
-        match_id = None
-        if game_key:
-            for gid, mid in match_map.items():
-                if gid and game_key and gid in game_key:
-                    match_id = mid
-                    break
-
-        team_name = row.get("team")
-        team_id   = team_map.get(team_name) if team_name else None
-
-        if not match_id or not team_id:
-            skipped += 1
+        opponent = norm_name(row.get("opponent"))
+        venue    = norm_name(row.get("venue"))
+        date_iso = norm_date(row.get("date"))
+        if not opponent or not venue or not date_iso:
+            skipped_no_team += 1
             continue
 
-        records.append((
-            match_id, team_id,
-            str(row.get("venue", ""))[:10] if row.get("venue") else None,
-            str(row.get("result", ""))[:5] if row.get("result") else None,
-            clean(row.get("goals_for")),
-            clean(row.get("goals_against")),
-            clean(row.get("shots")),
-            clean(row.get("shots_on_target")),
-            clean(row.get("fouls")),
-            clean(row.get("yellow_cards")),
-            clean(row.get("red_cards")),
-            clean(row.get("pen_attempts")),
-        ))
+        hit = (home_lookup if venue.lower() == "home" else away_lookup).get((date_iso, opponent))
+        if not hit:
+            skipped_no_match += 1
+            continue
+        match_id, team_id = hit
 
-    log.info("  Built %d records (skipped %d)", len(records), skipped)
+        records.append((
+        match_id, team_id, venue[:10], norm_name(row.get("result"))[:5],
+            clean_int(row.get("goals_for")), clean_int(row.get("goals_against")),
+            clean_int(row.get("shots")), clean_int(row.get("shots_on_target")),
+            clean_int(row.get("fouls")), clean_int(row.get("yellow_cards")),
+            clean_int(row.get("red_cards")), clean_int(row.get("pen_attempts")),
+            ))
+
+    log.info("  Built %d records (no_team=%d, bad_date=%d, no_match=%d)",
+             len(records), skipped_no_team, bad_date, skipped_no_match)
 
     if records:
         psycopg2.extras.execute_values(
@@ -149,7 +177,6 @@ def main():
             records,
             page_size=200,
         )
-        conn.commit()
 
     # Verify
     cur.execute("SELECT COUNT(*) FROM match_stats")
