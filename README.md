@@ -2,7 +2,7 @@
 
 A full-stack football analytics platform built with Python, FastAPI, PostgreSQL, and React.
 
-> **Status**: 🚧 Active Development — M1 (Data Collection)
+> **Status**: 🚧 Active Development — M11 (Prediction Model)
 
 ---
 
@@ -34,8 +34,8 @@ React + Tailwind Frontend (Vercel)
 | Player vs Player comparison | 🔜 |
 | Similar players engine | 🔜 |
 | Scout Score (position-weighted) | 🔜 |
-| Match Intelligence | 🔜 |
-| Match outcome prediction | 🔜 |
+| Match Intelligence | ✅ |
+| Match outcome prediction | ✅ (M11) |
 | Live fixtures | 🔜 |
 
 ## 🔧 Tech Stack
@@ -110,6 +110,20 @@ python scripts/load_match_stats.py      # creates + populates the match_stats ta
 > Note: match-stats rows carry `team` + `date` (not a game_id) and are joined to
 > `matches` on `(match_date, team_name)`. Rows without a resolvable team are skipped
 > and logged — if the extractor reports many missing teams, re-run it interactively.
+
+### Prediction Model (M11)
+```bash
+# Train the H/D/A classifier + expected-goals models (from repo root)
+python scripts/train_model.py      # saves artifacts to ml/models/, prints a report
+```
+API endpoints (once the model is trained):
+- `GET /api/predictions/match?home=Arsenal&away=Man City` — arbitrary fixture prediction
+- `GET /api/predictions/upcoming` — predicts unplayed fixtures in the DB
+- `GET /api/predictions/report` — model accuracy / baseline / log-loss metrics
+
+> **Note:** the shipped dataset is one completed season (380 matches), so `/upcoming`
+> returns 0 fixtures until future rounds are loaded. The `/match` endpoint is the
+> primary demo. Retrain after any data refresh.
 
 ### Frontend
 ```bash

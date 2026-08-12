@@ -53,9 +53,8 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# ML models
-ml/models/*.pkl
-ml/models/*.joblib
+# ML models (training artifacts — regenerable via scripts/train_model.py)
+ml/models/
 
 # Logs
 logs/

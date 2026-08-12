@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.routers import players, teams, matches, stats, dashboard, scouting, match_intelligence
+from app.routers import players, teams, matches, stats, dashboard, scouting, match_intelligence, predictions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +37,7 @@ app.include_router(stats.router,     prefix="/api/stats",     tags=["Stats"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(scouting.router,           prefix="/api/scouting",     tags=["Scouting"])
 app.include_router(match_intelligence.router,  prefix="/api/intel",        tags=["Match Intelligence"])
+app.include_router(predictions.router,         prefix="/api/predictions",  tags=["Predictions"])
 
 @app.get("/health", tags=["Health"])
 def health():

@@ -6,14 +6,16 @@ import Teams from './pages/Teams'
 import Compare from './pages/Compare'
 import Scouting from './pages/Scouting'
 import MatchIntelligence from './pages/MatchIntelligence'
+import Predictions from './pages/Predictions'
 
 const PAGES = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⚡' },
-  { id: 'players',   label: 'Players',   icon: '👤' },
-  { id: 'teams',     label: 'Teams',     icon: '🛡️' },
-  { id: 'compare',   label: 'Compare',   icon: '⚖️' },
-  { id: 'scouting',  label: 'Scouting',  icon: '🔭' },
-  { id: 'intel',     label: 'Matches',   icon: '🏆' },
+  { id: 'dashboard',    label: 'Dashboard',    icon: '⚡' },
+  { id: 'players',      label: 'Players',      icon: '👤' },
+  { id: 'teams',        label: 'Teams',        icon: '🛡️' },
+  { id: 'compare',      label: 'Compare',      icon: '⚖️' },
+  { id: 'scouting',     label: 'Scouting',     icon: '🔭' },
+  { id: 'intel',        label: 'Matches',      icon: '🏆' },
+  { id: 'predictions',  label: 'Predict',      icon: '🔮' },
 ]
 
 export default function App() {
@@ -26,8 +28,9 @@ export default function App() {
       case 'teams':     return <Teams />
       case 'compare':   return <Compare />
       case 'scouting':  return <Scouting />
-      case 'intel':     return <MatchIntelligence />
-      default:          return <Dashboard />
+      case 'intel':        return <MatchIntelligence />
+      case 'predictions':  return <Predictions />
+      default:             return <Dashboard />
     }
   }
 
