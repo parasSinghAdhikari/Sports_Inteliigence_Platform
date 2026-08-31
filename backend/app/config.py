@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/sports_intelligence"
 
     # External APIs
-    FOOTBALL_DATA_API_KEY: str = ""
+    FOOTBALL_DATA_API_KEY: str = "8f3c445a693740c6872e1c9277c78d0d"
+    # football-data.org v4 competition id (2021 = English Premier League).
+    FOOTBALL_DATA_COMPETITION_ID: str = "2021"
 
     # App
     APP_ENV: str = "development"

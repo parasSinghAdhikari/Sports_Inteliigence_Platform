@@ -1,170 +1,206 @@
-# ⚽ Sports Intelligence Platform
+# ⚽ SportsIQ — Premier League Intelligence Platform
 
-A full-stack football analytics platform built with Python, FastAPI, PostgreSQL, and React.
+> Real FBref data · FastAPI backend · React frontend · ML predictions
 
-> **Status**: 🚧 Active Development — M11 (Prediction Model)
+A full-stack sports analytics platform built with real **Premier League 2024-25** data scraped from FBref. Features a dark-mode React dashboard, REST API, cosine-similarity player comparison, composite Scout Score, match-outcome predictions, and live fixture integration.
 
 ---
 
-## 🎯 Overview
+## 🖥️ Live Demo
 
-Sports Intelligence transforms raw football data into actionable analytics — player comparisons, scout scoring, match intelligence, and outcome predictions.
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Swagger | http://localhost:8000/docs |
+
+---
+
+## 🗺️ Pages
+
+| Page | Description |
+|------|-------------|
+| ⚡ Dashboard | League table, top scorers, top assists, recent results |
+| 👤 Players | 574 players — sortable, searchable, position-filtered |
+| 🛡️ Teams | All 20 clubs — card grid + table toggle, team profile modal |
+| ⚖️ Compare | Live autocomplete head-to-head player comparison |
+| 🔭 Scouting | Scout Score (0-100) ranking + Similar Player finder |
+| 🏆 Matches | 380 results with per-match shot/foul/card stats + H2H |
+| 🔮 Predict | ML match-outcome predictor (GradientBoosting + calibration) |
+| 📅 Fixtures | Live upcoming fixtures via football-data.org |
+
+---
 
 ## 🏗️ Architecture
 
 ```
-Data Sources (FBref, StatsBomb, football-data.org)
-        ↓
-ETL Pipeline (Python + Pandas)
-        ↓
-PostgreSQL Database (Neon)
-        ↓
-FastAPI Backend (Render)
-        ↓
-React + Tailwind Frontend (Vercel)
+FBref (soccerdata)
+       ↓
+  scripts/extract_*.py     ← raw parquet files
+       ↓
+  scripts/transform_data.py ← cleaned parquet
+       ↓
+  scripts/load_database.py  ← Neon PostgreSQL
+       ↓
+  backend/ (FastAPI)        ← REST API :8000
+       ↓
+  frontend/ (React/Vite)    ← UI :5173
 ```
 
-## ✨ Features (Planned)
+---
 
-| Feature | Status |
-|---|---|
-| Dashboard — fixtures, top players, league table | 🔜 |
-| Player profiles & performance trends | 🔜 |
-| Team profiles & form | 🔜 |
-| Player vs Player comparison | 🔜 |
-| Similar players engine | 🔜 |
-| Scout Score (position-weighted) | 🔜 |
-| Match Intelligence | ✅ |
-| Match outcome prediction | ✅ (M11) |
-| Live fixtures | 🔜 |
-
-## 🔧 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Data | Python, soccerdata, Pandas, NumPy |
-| Database | PostgreSQL (Neon) |
-| ORM | SQLAlchemy + Alembic |
-| Backend | FastAPI + Pydantic |
-| Frontend | React + Vite + Tailwind CSS |
-| Charts | Recharts |
-| ML | Scikit-learn (planned for M12) |
-| Deploy | Vercel (FE) + Render (BE) |
-
-## 📊 Data Sources
-
-- **FBref** via [soccerdata](https://soccerdata.readthedocs.io/) — season & match statistics
-- **StatsBomb Open Data** — event-level data for match intelligence
-- **football-data.org** (free tier) — live fixtures & league tables
-
-## 🚀 Local Setup
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.10+
-- PostgreSQL (local or Neon/Supabase)
-- Node.js 18+
+- Python 3.11+
+- Node 18+
+- A [Neon](https://neon.tech) PostgreSQL database (free tier)
 
-### Backend
+### 1. Clone & install
+
 ```bash
+git clone https://github.com/yourusername/sports-intelligence-platform
 cd sports-intelligence-platform
 
-# Create virtual environment
 python -m venv venv
-venv\Scripts\activate   # Windows
-
-# Install dependencies
+venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 
-# Copy and configure environment
-copy .env.example .env
-# Edit .env with your DATABASE_URL
-
-# Run FastAPI
-cd backend
-uvicorn app.main:app --reload
+cd frontend && npm install && cd ..
 ```
 
-### Data Pipeline
+### 2. Configure environment
+
 ```bash
-# Step 1: Extract FBref data
+cp .env.example .env
+# Edit .env and set:
+#   DATABASE_URL=postgresql://...   (Neon connection string)
+#   FOOTBALL_DATA_API_KEY=...       (optional, for live fixtures)
+```
+
+### 3. Load data
+
+```bash
+# Extract from FBref (takes ~5-10 min first time)
 python scripts/extract_fbref.py
 
-# Step 2: Validate data quality
-python scripts/validate_data.py
-
-# Step 3: Transform raw -> clean parquet
+# Transform
 python scripts/transform_data.py
 
-# Step 4: Load to database (after DB setup)
+# Load into Neon
 python scripts/load_database.py
+
+# Load per-match stats (shots, fouls, cards)
+python scripts/extract_match_stats.py
+python scripts/load_match_stats.py
+
+# Train prediction model
+python scripts/train_model.py
 ```
 
-### Match Intelligence (M10) Data
-Per-match stats feed the `/api/intel*` endpoints. Run after the main pipeline
-(needs teams + matches loaded). Run the extractor in your own terminal — it
-uses a real Chrome browser and FBref may block headless instances.
+### 4. Run locally
+
 ```bash
-python scripts/extract_match_stats.py   # writes data/processed/match_stats.parquet
-python scripts/load_match_stats.py      # creates + populates the match_stats table
-```
-> Note: match-stats rows carry `team` + `date` (not a game_id) and are joined to
-> `matches` on `(match_date, team_name)`. Rows without a resolvable team are skipped
-> and logged — if the extractor reports many missing teams, re-run it interactively.
+# Terminal 1 — Backend
+$env:PYTHONPATH = "backend"
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend --reload
 
-### Prediction Model (M11)
+# Terminal 2 — Frontend
+cd frontend && npm run dev
+```
+
+Open **http://localhost:5173**
+
+---
+
+## 🐳 Docker
+
 ```bash
-# Train the H/D/A classifier + expected-goals models (from repo root)
-python scripts/train_model.py      # saves artifacts to ml/models/, prints a report
+# Build and run everything
+docker compose up --build
+
+# Backend only
+docker compose up backend
 ```
-API endpoints (once the model is trained):
-- `GET /api/predictions/match?home=Arsenal&away=Man City` — arbitrary fixture prediction
-- `GET /api/predictions/upcoming` — predicts unplayed fixtures in the DB
-- `GET /api/predictions/report` — model accuracy / baseline / log-loss metrics
 
-> **Note:** the shipped dataset is one completed season (380 matches), so `/upcoming`
-> returns 0 fixtures until future rounds are loaded. The `/match` endpoint is the
-> primary demo. Retrain after any data refresh.
+- Frontend → http://localhost:80
+- Backend  → http://localhost:8000
 
-### Frontend
+---
+
+## ☁️ Deploy to Railway (free tier)
+
+1. Push to GitHub
+2. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub**
+3. Select your repo
+4. Add env vars: `DATABASE_URL`, optionally `FOOTBALL_DATA_API_KEY`
+5. Railway auto-detects `railway.toml` → deploys in ~2 min
+
+For the frontend, deploy to **Vercel**:
 ```bash
 cd frontend
-npm install
-npm run dev
+npx vercel --prod
+# Set VITE_API_URL=https://your-railway-app.up.railway.app
 ```
+
+---
+
+## 📊 Data
+
+| Source | Method | Records |
+|--------|--------|---------|
+| FBref | soccerdata | 574 players, 380 matches, 20 teams |
+| football-data.org | REST API | Live fixtures (free tier, delayed) |
+
+All data is 2024-25 Premier League season.
+
+---
+
+## 🤖 ML Model
+
+- **Algorithm**: Gradient Boosting Classifier (calibrated with isotonic regression)
+- **Features**: 38 engineered features — rolling form (3/5/10 games), home/away rates, goal difference, possession, shots on target rate
+- **Training split**: 250 train / 70 val / 60 test matches
+- **Output**: Win/Draw/Loss probabilities + expected scoreline
+
+---
+
+## 🔭 Scout Score Formula
+
+```
+Scout Score (0-100) =
+  weighted per-90 rates (G 30%, A 20%, G+A/90 25%, NP goals 15%, NP G+A 10%)
+  × age multiplier (23-28y peak bonus up to +10%)
+  × minutes confidence (≥900 min = 1.0, scaled below)
+```
+
+---
 
 ## 📁 Project Structure
 
 ```
-sports-intelligence-platform/
-├── backend/app/
-│   ├── main.py          # FastAPI app
-│   ├── database.py      # SQLAlchemy setup
-│   ├── config.py        # Settings from .env
-│   ├── models/          # ORM models
-│   ├── routers/         # API endpoints
-│   ├── services/        # Business logic
-│   └── utils/           # Helpers
-├── data/
-│   ├── raw/             # Downloaded data (not in Git)
-│   └── processed/       # Cleaned data (not in Git)
-├── analytics/
-│   ├── notebooks/       # Jupyter exploration
-│   └── sql/             # Analytical queries
-├── ml/                  # ML models & training
-├── scripts/             # ETL pipeline
-├── docs/                # Data dictionary
-└── tests/               # Automated tests
+├── backend/              FastAPI application
+│   └── app/
+│       ├── routers/      9 API routers
+│       ├── database.py   psycopg2 connection pool
+│       └── config.py     pydantic-settings
+├── frontend/             Vite + React
+│   └── src/pages/        8 page components
+├── ml/                   Feature engineering + model
+│   ├── features.py
+│   ├── train.py
+│   ├── predict.py
+│   └── models/           Trained artifacts (.joblib + report.json)
+├── scripts/              ETL + training scripts
+├── data/processed/       Parquet files
+├── Dockerfile
+├── docker-compose.yml
+├── railway.toml
+└── .env.example
 ```
 
-## ⚠️ Limitations
+---
 
-- FBref data accessed via soccerdata — refresh responsibly per source terms
-- StatsBomb event data is Open Data with attribution requirements
-- football-data.org free tier: 10 req/min, scores delayed, no true live data
-- Render free tier: service sleeps after 15 min inactivity
+## 📜 License
 
-## 📄 Data Attribution
-
-- FBref data sourced via [soccerdata](https://soccerdata.readthedocs.io/)
-- StatsBomb Open Data: [github.com/statsbomb/open-data](https://github.com/statsbomb/open-data)
-- Fixtures via [football-data.org](https://www.football-data.org/)
+MIT — use freely, attribution appreciated.

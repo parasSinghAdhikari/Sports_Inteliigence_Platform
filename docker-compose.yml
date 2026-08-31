@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  # ── FastAPI backend ──────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      target: backend
+    image: sportsiq-backend:latest
+    container_name: sportsiq-backend
+    restart: unless-stopped
+    env_file: .env          # loads DATABASE_URL and optional FOOTBALL_DATA_API_KEY
+    environment:
+      - PORT=8000
+    ports:
+      - "8000:8000"         # exposed for direct API access / Swagger UI
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── React frontend (nginx) ───────────────────────────────────
+  frontend:
+    build:
+      context: .
+      target: frontend
+      args:
+        # Empty = frontend uses Vite proxy via /api/ (same-origin)
+        VITE_API_URL: ""
+    image: sportsiq-frontend:latest
+    container_name: sportsiq-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ── Optional: local Postgres for offline dev ─────────────────
+  # Uncomment if you want a local DB instead of Neon:
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: sportsiq
+  #     POSTGRES_PASSWORD: sportsiq
+  #     POSTGRES_DB: sportsiq
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #
+  # volumes:
+  #   pgdata:

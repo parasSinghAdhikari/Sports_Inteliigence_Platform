@@ -7,6 +7,7 @@ import Compare from './pages/Compare'
 import Scouting from './pages/Scouting'
 import MatchIntelligence from './pages/MatchIntelligence'
 import Predictions from './pages/Predictions'
+import Live from './pages/Live'
 
 const PAGES = [
   { id: 'dashboard',    label: 'Dashboard',    icon: '⚡' },
@@ -16,6 +17,7 @@ const PAGES = [
   { id: 'scouting',     label: 'Scouting',     icon: '🔭' },
   { id: 'intel',        label: 'Matches',      icon: '🏆' },
   { id: 'predictions',  label: 'Predict',      icon: '🔮' },
+  { id: 'live',         label: 'Fixtures',     icon: '📅' },
 ]
 
 export default function App() {
@@ -30,6 +32,7 @@ export default function App() {
       case 'scouting':  return <Scouting />
       case 'intel':        return <MatchIntelligence />
       case 'predictions':  return <Predictions />
+      case 'live':         return <Live />
       default:             return <Dashboard />
     }
   }
