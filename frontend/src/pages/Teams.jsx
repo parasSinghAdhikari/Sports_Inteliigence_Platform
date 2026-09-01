@@ -2,8 +2,51 @@ import React, { useState, useEffect } from 'react'
 
 const API = '/api'
 
-function TeamDetailModal({ teamId, onClose }) {
+function TeamCard({ team, onClick }) {
+  const pos = team.league_position || '–'
+  return (
+    <div className="card" onClick={onClick} style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(16,185,129,0.3)'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-card)'}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-1)' }}>{team.name}</div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 2 }}>2024-25 Premier League</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 800, fontSize: '1.4rem', color: pos <= 4 ? 'var(--green)' : 'var(--text-1)' }}>{pos}</div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', textTransform: 'uppercase' }}>Position</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, textAlign: 'center' }}>
+        {[
+          { label: 'Pts', val: team.points, color: 'var(--green)' },
+          { label: 'GD',  val: team.goal_diff > 0 ? `+${team.goal_diff}` : team.goal_diff, color: team.goal_diff > 0 ? 'var(--green)' : 'var(--red)' },
+          { label: 'GF',  val: team.goals, color: 'var(--text-1)' },
+          { label: 'GA',  val: team.goals_against, color: 'var(--text-2)' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--bg-card2)', borderRadius: 6, padding: '6px 4px' }}>
+            <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '0.95rem', color: s.color }}>{s.val ?? '–'}</div>
+            <div style={{ fontSize: '0.58rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {team.avg_possession && (
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, height: 4, background: 'var(--bg-hover)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: `${team.avg_possession}%`, height: '100%', background: 'var(--green)', borderRadius: 2 }} />
+          </div>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>{team.avg_possession}% poss</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeamModal({ teamId, onClose }) {
   const [data, setData] = useState(null)
+  const [tab, setTab] = useState('overview')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -13,113 +56,107 @@ function TeamDetailModal({ teamId, onClose }) {
       .catch(() => setLoading(false))
   }, [teamId])
 
+  if (loading) return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal"><div className="loading"><div className="spinner" /></div></div>
+    </div>
+  )
+
+  const t = data?.team || {}
+  const squad = data?.squad || []
+  const matches = data?.recent_matches || []
+
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(4px)', zIndex: 200,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border-glow)',
-          borderRadius: 'var(--radius-lg)', padding: 28, maxWidth: 760,
-          width: '100%', maxHeight: '85vh', overflowY: 'auto',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {loading ? (
-          <div className="loading"><div className="spinner" /> Loading...</div>
-        ) : !data ? (
-          <div className="empty">Failed to load team data.</div>
-        ) : (
-          <>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <div>
-                <div style={{ fontFamily: 'Outfit', fontSize: '1.6rem', fontWeight: 800 }}>
-                  {data.team.name}
-                </div>
-                <div style={{ color: 'var(--text-3)', fontSize: '0.8rem', marginTop: 4 }}>
-                  Premier League · 2024-25 Season
-                </div>
-              </div>
-              <button onClick={onClose} style={{
-                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
-                borderRadius: 8, color: 'var(--text-2)', padding: '6px 12px', cursor: 'pointer',
-                fontFamily: 'Inter', fontSize: '0.85rem',
-              }}>✕ Close</button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontFamily: 'Outfit', fontWeight: 800, fontSize: '1.2rem' }}>{t.name}</div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.72rem', color: 'var(--text-3)' }}>
+              <span>League #{t.league_position}</span>
+              <span style={{ color: 'var(--green)', fontWeight: 600 }}>{t.points} pts</span>
+              <span>GD {t.goal_diff > 0 ? '+' : ''}{t.goal_diff}</span>
             </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
 
-            {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
-              {[
-                { label: 'Goals', value: data.team.goals, accent: true },
-                { label: 'Assists', value: data.team.assists },
-                { label: 'Possession', value: `${data.team.avg_possession}%`, accent: true },
-                { label: 'G/90', value: data.team.goals_per90 },
-              ].map(s => (
-                <div key={s.label} style={{
-                  background: 'var(--bg-card2)', borderRadius: 10, padding: '12px 14px',
-                  border: '1px solid var(--border)',
-                }}>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>
-                    {s.label}
-                  </div>
-                  <div style={{
-                    fontFamily: 'Outfit', fontSize: '1.5rem', fontWeight: 800,
-                    color: s.accent ? 'var(--cyan)' : 'var(--text-1)',
-                  }}>
-                    {s.value}
-                  </div>
-                </div>
+        {/* Key stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
+          {[
+            { label: 'Goals For',     val: t.goals,           color: 'var(--green)' },
+            { label: 'Goals Against', val: t.goals_against,   color: 'var(--red)' },
+            { label: 'Clean Sheets',  val: t.clean_sheets,    color: 'var(--cyan)' },
+            { label: 'Possession',    val: `${t.avg_possession}%`, color: 'var(--text-1)' },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'var(--bg-card2)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Outfit', fontSize: '1.3rem', fontWeight: 800, color: s.color }}>{s.val ?? '–'}</div>
+              <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="tabs">
+          {['overview','squad','matches'].map(t => (
+            <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'overview' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {[
+              { label: 'Wins',          val: t.wins },
+              { label: 'Draws',         val: t.draws },
+              { label: 'Losses',        val: t.losses },
+              { label: 'Avg Shots/Gm',  val: t.avg_shots },
+              { label: 'Avg SoT/Gm',    val: t.avg_sot },
+              { label: 'xG',            val: t.xg },
+            ].map(s => (
+              <div key={s.label} className="mini-stat-row">
+                <span className="mini-stat-label">{s.label}</span>
+                <span className="mini-stat-value">{s.val ?? '–'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'squad' && (
+          <table className="data-table">
+            <thead><tr><th>Player</th><th>Pos</th><th>Age</th><th>G</th><th>A</th><th>Min</th></tr></thead>
+            <tbody>
+              {squad.map(p => (
+                <tr key={p.id}>
+                  <td className="bold">{p.name}</td>
+                  <td><span className={`pos-badge ${p.position}`}>{p.position}</span></td>
+                  <td>{p.age}</td>
+                  <td className="green">{p.goals}</td>
+                  <td style={{ color: 'var(--cyan)' }}>{p.assists}</td>
+                  <td className="dim">{p.minutes?.toLocaleString()}</td>
+                </tr>
               ))}
-            </div>
+            </tbody>
+          </table>
+        )}
 
-            {/* Possession bar */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 6 }}>
-                Avg Possession: {data.team.avg_possession}%
-              </div>
-              <div className="poss-bar">
-                <div className="poss-bar-fill" style={{ width: `${data.team.avg_possession}%` }} />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              {/* Recent results */}
-              <div>
-                <div className="card-title" style={{ marginBottom: 12 }}>Recent Results</div>
-                {data.recent_results.map((r, i) => (
-                  <div key={i} className="match-row">
-                    <span className="match-team home" style={{ fontSize: '0.78rem' }}>{r.home_team}</span>
-                    <span className="match-score">{r.home_score}–{r.away_score}</span>
-                    <span className="match-team" style={{ fontSize: '0.78rem' }}>{r.away_team}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Squad */}
-              <div>
-                <div className="card-title" style={{ marginBottom: 12 }}>Top Players by Minutes</div>
-                {data.squad.slice(0, 8).map((p, i) => (
-                  <div key={i} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    fontSize: '0.82rem',
-                  }}>
-                    <span style={{ fontWeight: 500 }}>{p.name}</span>
-                    <span style={{ color: 'var(--text-3)', marginLeft: 8 }}>
-                      {p.goals ?? 0}G {p.assists ?? 0}A
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+        {tab === 'matches' && (
+          <div>
+            {matches.slice(0, 8).map((m, i) => {
+              const homeWon = m.home_score > m.away_score
+              const awayWon = m.away_score > m.home_score
+              return (
+                <div key={i} className="match-row">
+                  <span className="match-week">W{m.matchweek}</span>
+                  <span className="match-team home" style={{ fontWeight: homeWon ? 700 : 400 }}>{m.home_team}</span>
+                  <span className="match-score">{m.home_score}–{m.away_score}</span>
+                  <span className="match-team" style={{ fontWeight: awayWon ? 700 : 400 }}>{m.away_team}</span>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </div>
@@ -129,123 +166,74 @@ function TeamDetailModal({ teamId, onClose }) {
 export default function Teams() {
   const [teams, setTeams] = useState([])
   const [table, setTable] = useState([])
+  const [view, setView] = useState('cards')
+  const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedTeam, setSelectedTeam] = useState(null)
-  const [view, setView] = useState('grid') // 'grid' | 'table'
 
   useEffect(() => {
     Promise.all([
       fetch(`${API}/teams/`).then(r => r.json()),
       fetch(`${API}/teams/table`).then(r => r.json()),
     ]).then(([td, tbl]) => {
-      setTeams(td.teams)
-      setTable(tbl.table)
+      setTeams(td.teams || [])
+      setTable(tbl.table || [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
-  if (loading) return (
-    <div className="loading"><div className="spinner" /> Loading teams...</div>
-  )
+  if (loading) return <div className="loading"><div className="spinner" /> Loading...</div>
 
   return (
-    <div>
-      {selectedTeam && (
-        <TeamDetailModal teamId={selectedTeam} onClose={() => setSelectedTeam(null)} />
-      )}
+    <div className="page-enter">
+      {selected && <TeamModal teamId={selected} onClose={() => setSelected(null)} />}
 
       <div className="page-header">
         <div>
           <div className="page-title">Teams</div>
-          <div className="page-subtitle">All 20 Premier League clubs · 2024-25</div>
+          <div className="page-subtitle">20 Premier League clubs · 2024-25</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {['grid', 'table'].map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter',
-              fontSize: '0.85rem', fontWeight: 500, border: '1px solid var(--border)',
-              background: view === v ? 'rgba(0,212,255,0.1)' : 'var(--bg-card)',
-              color: view === v ? 'var(--cyan)' : 'var(--text-2)',
-              transition: 'all 0.2s',
-            }}>
-              {v === 'grid' ? '⊞ Grid' : '☰ Table'}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['cards','table'].map(v => (
+            <button key={v} className={`btn ${view === v ? 'btn-green' : 'btn-ghost'}`} onClick={() => setView(v)}>
+              {v === 'cards' ? '⊞ Cards' : '☰ Table'}
             </button>
           ))}
         </div>
       </div>
 
-      {view === 'grid' ? (
-        <div className="teams-grid">
+      {view === 'cards' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {teams.map(t => (
-            <div key={t.id} className="team-card" onClick={() => setSelectedTeam(t.id)}>
-              <div className="team-card-name">{t.name}</div>
-              <div className="team-stat-row">
-                <span className="team-stat-label">Goals</span>
-                <span className="team-stat-value cyan">{t.goals ?? '–'}</span>
-              </div>
-              <div className="team-stat-row">
-                <span className="team-stat-label">Assists</span>
-                <span className="team-stat-value">{t.assists ?? '–'}</span>
-              </div>
-              <div className="team-stat-row">
-                <span className="team-stat-label">Players Used</span>
-                <span className="team-stat-value">{t.players_used ?? '–'}</span>
-              </div>
-              <div className="team-stat-row">
-                <span className="team-stat-label">Avg Age</span>
-                <span className="team-stat-value">{t.avg_age ?? '–'}</span>
-              </div>
-              <div className="team-stat-row">
-                <span className="team-stat-label">Goals/90</span>
-                <span className="team-stat-value">{t.goals_per90 ?? '–'}</span>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginBottom: 4 }}>
-                  Possession {t.avg_possession}%
-                </div>
-                <div className="poss-bar">
-                  <div className="poss-bar-fill" style={{ width: `${t.avg_possession}%` }} />
-                </div>
-              </div>
-            </div>
+            <TeamCard key={t.id} team={t} onClick={() => setSelected(t.id)} />
           ))}
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="league-table" style={{ padding: '0 20px' }}>
+        <div className="card" style={{ padding: 0 }}>
+          <table className="data-table">
             <thead>
               <tr>
                 <th>#</th>
                 <th>Team</th>
-                <th>P</th>
-                <th>W</th>
-                <th>D</th>
-                <th>L</th>
-                <th>GF</th>
-                <th>GA</th>
-                <th>GD</th>
-                <th>Pts</th>
+                <th>P</th><th>W</th><th>D</th><th>L</th>
+                <th>GF</th><th>GA</th><th>GD</th><th>Pts</th>
               </tr>
             </thead>
             <tbody>
-              {table.map((r, i) => (
-                <tr key={r.team}
-                  onClick={() => setSelectedTeam(r.id)}
-                  style={{ cursor: 'pointer' }}
-                  className={i < 4 ? 'ucl' : i < 6 ? 'uel' : i >= 17 ? 'rel' : ''}
-                >
-                  <td>{i + 1}</td>
-                  <td>{r.team}</td>
-                  <td>{r.played}</td>
-                  <td>{r.wins}</td>
-                  <td>{r.draws}</td>
-                  <td>{r.losses}</td>
-                  <td>{r.goals_for}</td>
-                  <td>{r.goals_against}</td>
-                  <td style={{ color: r.goal_diff > 0 ? '#22c55e' : r.goal_diff < 0 ? '#ef4444' : '#8b9cc8' }}>
-                    {r.goal_diff > 0 ? '+' : ''}{r.goal_diff}
-                  </td>
-                  <td className="pts">{r.points}</td>
+              {table.map((row, i) => (
+                <tr key={row.team} onClick={() => {
+                  const t = teams.find(t => t.name === row.team)
+                  if (t) setSelected(t.id)
+                }}>
+                  <td><span className={`rank-num ${i < 4 ? 'top3' : ''}`}>{i + 1}</span></td>
+                  <td className="bold">{row.team}</td>
+                  <td>{row.played}</td>
+                  <td className="green">{row.wins}</td>
+                  <td>{row.draws}</td>
+                  <td className="red">{row.losses}</td>
+                  <td>{row.goals_for}</td>
+                  <td className="dim">{row.goals_against}</td>
+                  <td className={row.goal_diff >= 0 ? 'green' : 'red'}>{row.goal_diff > 0 ? '+' : ''}{row.goal_diff}</td>
+                  <td className="bold green">{row.points}</td>
                 </tr>
               ))}
             </tbody>

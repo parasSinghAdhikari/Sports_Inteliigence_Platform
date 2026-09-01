@@ -1,71 +1,93 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 
 const API = '/api'
 
-const STAT_KEYS = [
-  { key: 'goals',                       label: 'Goals' },
-  { key: 'assists',                     label: 'Assists' },
-  { key: 'goals_plus_assists',          label: 'G + A' },
-  { key: 'goals_per90',                 label: 'Goals / 90' },
-  { key: 'assists_per90',               label: 'Assists / 90' },
-  { key: 'goal_contributions_per90',    label: 'G+A / 90' },
-  { key: 'minutes',                     label: 'Minutes' },
-  { key: 'non_pen_goals',               label: 'Non-Pen Goals' },
-  { key: 'yellow_cards',                label: 'Yellow Cards' },
-  { key: 'red_cards',                   label: 'Red Cards' },
+const STATS = [
+  { key: 'goals',                     label: 'Goals',           format: v => v },
+  { key: 'assists',                   label: 'Assists',         format: v => v },
+  { key: 'goals_plus_assists',        label: 'G + A',           format: v => v },
+  { key: 'goals_per90',               label: 'Goals / 90',      format: v => v },
+  { key: 'assists_per90',             label: 'Assists / 90',    format: v => v },
+  { key: 'goal_contributions_per90',  label: 'G+A / 90',        format: v => v },
+  { key: 'non_pen_goals',             label: 'Non-pen Goals',   format: v => v },
+  { key: 'shots_per90',               label: 'Shots / 90',      format: v => v },
+  { key: 'shot_accuracy',             label: 'Shot Acc %',      format: v => v },
+  { key: 'minutes',                   label: 'Minutes',         format: v => v?.toLocaleString() },
 ]
 
-function PlayerSearchBox({ label, value, onChange, onSelect }) {
+function SearchBox({ label, color, value, setValue, result, setResult, index }) {
+  const [q, setQ] = useState(value?.name || '')
   const [suggestions, setSuggestions] = useState([])
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    if (!value || value.length < 2) { setSuggestions([]); return }
-    const t = setTimeout(() => {
-      fetch(`${API}/players/?search=${encodeURIComponent(value)}&limit=8`)
-        .then(r => r.json())
-        .then(d => { setSuggestions(d.players); setOpen(true) })
-        .catch(() => {})
-    }, 250)
-    return () => clearTimeout(t)
-  }, [value])
+  const search = (val) => {
+    setQ(val)
+    if (val.length < 2) { setSuggestions([]); setOpen(false); return }
+    fetch(`${API}/players/?search=${encodeURIComponent(val)}&limit=8`)
+      .then(r => r.json())
+      .then(d => { setSuggestions(d.players || []); setOpen(true) })
+  }
+
+  const pick = (p) => {
+    setQ(p.name)
+    setResult(p)
+    setOpen(false)
+  }
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div className="compare-search">
-        <label>{label}</label>
-        <input
-          className="search-input"
-          style={{ width: '100%' }}
-          placeholder="Type player name..."
-          value={value}
-          onChange={e => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => suggestions.length && setOpen(true)}
-        />
+    <div style={{ position: 'relative', flex: 1 }}>
+      <div style={{
+        background: 'var(--bg-card2)', border: `1px solid ${color}40`,
+        borderRadius: 10, padding: 14, marginBottom: 8,
+      }}>
+        <div style={{ fontSize: '0.62rem', color, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 8 }}>
+          Player {index}
+        </div>
+        {result ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="player-avatar" style={{ width: 40, height: 40, fontSize: 16, borderColor: color }}>{result.name?.[0]}</div>
+            <div>
+              <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '0.95rem' }}>{result.name}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>{result.team} · {result.position} · Age {result.age}</div>
+            </div>
+            <button onClick={() => { setResult(null); setQ('') }} style={{
+              marginLeft: 'auto', background: 'none', border: 'none',
+              color: 'var(--text-3)', cursor: 'pointer', fontSize: 16,
+            }}>✕</button>
+          </div>
+        ) : (
+          <input
+            value={q}
+            onChange={e => search(e.target.value)}
+            placeholder={`Search ${label}...`}
+            style={{
+              background: 'var(--bg-base)', border: '1px solid var(--border-card)',
+              borderRadius: 6, padding: '7px 10px', color: 'var(--text-1)',
+              fontSize: '0.8rem', outline: 'none', width: '100%',
+              fontFamily: 'Inter',
+            }}
+          />
+        )}
       </div>
       {open && suggestions.length > 0 && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'var(--bg-card2)', border: '1px solid var(--border-glow)',
-          borderRadius: 10, overflow: 'hidden', marginTop: 4,
+          position: 'absolute', top: '100%', left: 0, right: 0,
+          background: 'var(--bg-card)', border: '1px solid var(--border-card)',
+          borderRadius: 8, zIndex: 50, overflow: 'hidden', marginTop: 4,
         }}>
           {suggestions.map(p => (
-            <div
-              key={p.id}
-              style={{
-                padding: '10px 14px', cursor: 'pointer',
-                borderBottom: '1px solid var(--border)',
-                transition: 'background 0.15s',
-                fontSize: '0.85rem',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,212,255,0.08)'}
+            <div key={p.id} onClick={() => pick(p)} style={{
+              padding: '9px 12px', cursor: 'pointer', fontSize: '0.78rem',
+              borderBottom: '1px solid var(--border)', display: 'flex',
+              alignItems: 'center', gap: 8,
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
-              onClick={() => { onSelect(p); setOpen(false) }}
             >
+              <div className="player-avatar" style={{ width: 24, height: 24, fontSize: 10 }}>{p.name?.[0]}</div>
               <span style={{ fontWeight: 600 }}>{p.name}</span>
-              <span style={{ color: 'var(--text-3)', marginLeft: 8 }}>
-                {p.team} · {p.position}
-              </span>
+              <span style={{ color: 'var(--text-3)', fontSize: '0.65rem' }}>{p.team}</span>
+              <span className={`pos-badge ${p.position}`} style={{ marginLeft: 'auto' }}>{p.position}</span>
             </div>
           ))}
         </div>
@@ -74,189 +96,108 @@ function PlayerSearchBox({ label, value, onChange, onSelect }) {
   )
 }
 
-function StatBar({ label, v1, v2, max }) {
-  const pct1 = max > 0 ? Math.min((v1 / max) * 100, 100) : 0
-  const pct2 = max > 0 ? Math.min((v2 / max) * 100, 100) : 0
-  const winner1 = v1 > v2
-  const winner2 = v2 > v1
+function StatBar({ label, v1, v2, color1 = 'var(--green)', color2 = 'var(--purple)' }) {
+  const n1 = parseFloat(v1) || 0
+  const n2 = parseFloat(v2) || 0
+  const total = n1 + n2
+  const pct1 = total > 0 ? (n1 / total) * 100 : 50
+  const pct2 = 100 - pct1
+  const winner = n1 > n2 ? 1 : n2 > n1 ? 2 : 0
 
   return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 6, fontSize: '0.8rem',
-      }}>
-        <span style={{
-          fontFamily: 'Outfit', fontWeight: 700, fontSize: '1rem',
-          color: winner1 ? 'var(--cyan)' : 'var(--text-1)',
-        }}>
-          {v1 != null ? v1 : '–'}
-        </span>
-        <span style={{ color: 'var(--text-3)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-          {label}
-        </span>
-        <span style={{
-          fontFamily: 'Outfit', fontWeight: 700, fontSize: '1rem',
-          color: winner2 ? 'var(--cyan)' : 'var(--text-1)',
-        }}>
-          {v2 != null ? v2 : '–'}
-        </span>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: '0.75rem' }}>
+        <span style={{ fontWeight: winner === 1 ? 700 : 400, color: winner === 1 ? color1 : 'var(--text-2)' }}>{v1 ?? '–'}</span>
+        <span style={{ fontSize: '0.65rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</span>
+        <span style={{ fontWeight: winner === 2 ? 700 : 400, color: winner === 2 ? color2 : 'var(--text-2)' }}>{v2 ?? '–'}</span>
       </div>
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        {/* P1 bar (grows left to right, but reversed) */}
-        <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', transform: 'scaleX(-1)' }}>
-          <div style={{
-            height: '100%', width: `${pct1}%`,
-            background: winner1 ? 'var(--cyan)' : 'rgba(0,212,255,0.3)',
-            borderRadius: 3, transition: 'width 0.6s ease',
-          }} />
-        </div>
-        <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${pct2}%`,
-            background: winner2 ? 'var(--purple)' : 'rgba(168,85,247,0.3)',
-            borderRadius: 3, transition: 'width 0.6s ease',
-          }} />
-        </div>
+      <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', gap: 2 }}>
+        <div style={{ width: `${pct1}%`, background: winner === 1 ? color1 : `${color1}55`, borderRadius: '3px 0 0 3px', transition: 'width 0.5s' }} />
+        <div style={{ width: `${pct2}%`, background: winner === 2 ? color2 : `${color2}55`, borderRadius: '0 3px 3px 0', transition: 'width 0.5s' }} />
       </div>
     </div>
   )
 }
 
 export default function Compare() {
-  const [search1, setSearch1] = useState('')
-  const [search2, setSearch2] = useState('')
-  const [player1, setPlayer1] = useState(null)
-  const [player2, setPlayer2] = useState(null)
-  const [p1data, setP1data] = useState(null)
-  const [p2data, setP2data] = useState(null)
+  const [p1, setP1] = useState(null)
+  const [p2, setP2] = useState(null)
+  const [d1, setD1] = useState(null)
+  const [d2, setD2] = useState(null)
 
-  const loadPlayer = useCallback((id, setter) => {
-    fetch(`${API}/players/${id}`)
-      .then(r => r.json())
-      .then(setter)
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (player1) { setSearch1(player1.name); loadPlayer(player1.id, setP1data) }
-  }, [player1])
-
-  useEffect(() => {
-    if (player2) { setSearch2(player2.name); loadPlayer(player2.id, setP2data) }
-  }, [player2])
-
-  const getMax = (key) => {
-    const v1 = p1data?.[key] ?? 0
-    const v2 = p2data?.[key] ?? 0
-    return Math.max(Number(v1), Number(v2), 1)
+  const load = (p, setD) => {
+    if (!p) { setD(null); return }
+    fetch(`${API}/players/${p.id}`).then(r => r.json()).then(setD)
   }
 
-  const Avatar = ({ name, gradient }) => (
-    <div style={{
-      width: 72, height: 72, borderRadius: '50%',
-      background: gradient,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: '1.6rem', fontWeight: 800, color: 'var(--bg-base)',
-      margin: '0 auto 12px',
-    }}>
-      {(name || '?').split(' ').map(n => n[0]).join('').slice(0, 2)}
-    </div>
-  )
+  const setPlayer1 = (p) => { setP1(p); load(p, setD1) }
+  const setPlayer2 = (p) => { setP2(p); load(p, setD2) }
 
   return (
-    <div>
+    <div className="page-enter">
       <div className="page-header">
         <div>
           <div className="page-title">Compare Players</div>
-          <div className="page-subtitle">Head-to-head stats comparison</div>
+          <div className="page-subtitle">Head-to-head statistical comparison</div>
         </div>
       </div>
 
-      {/* Search inputs */}
-      <div className="compare-layout" style={{ marginBottom: 24 }}>
-        <PlayerSearchBox
-          label="Player 1"
-          value={search1}
-          onChange={setSearch1}
-          onSelect={p => { setPlayer1(p); setP1data(null) }}
-        />
-        <div className="compare-vs">VS</div>
-        <PlayerSearchBox
-          label="Player 2"
-          value={search2}
-          onChange={setSearch2}
-          onSelect={p => { setPlayer2(p); setP2data(null) }}
-        />
+      {/* Player pickers */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'flex-start' }}>
+        <SearchBox label="Player 1" color="var(--green)"  value={p1} setValue={setP1} result={p1} setResult={setPlayer1} index={1} />
+        <div style={{ display: 'flex', alignItems: 'center', paddingTop: 20 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-card2)',
+            border: '1px solid var(--border-card)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-3)',
+          }}>VS</div>
+        </div>
+        <SearchBox label="Player 2" color="var(--purple)" value={p2} setValue={setP2} result={p2} setResult={setPlayer2} index={2} />
       </div>
 
-      {!player1 && !player2 && (
-        <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 16 }}>⚖️</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 8 }}>Compare Any Two Players</div>
-          <div style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>
-            Type a player's name above to search. Try "Salah" vs "Haaland".
-          </div>
+      {(!p1 || !p2) && (
+        <div className="empty" style={{ padding: 60 }}>
+          <div style={{ fontSize: '2rem', marginBottom: 8 }}>⚖</div>
+          <div style={{ color: 'var(--text-2)', marginBottom: 4 }}>Select two players to compare</div>
+          <div style={{ color: 'var(--text-3)', fontSize: '0.72rem' }}>Search by name above — try Salah vs Haaland</div>
         </div>
       )}
 
-      {(player1 || player2) && (
-        <>
-          {/* Player headers */}
-          <div className="compare-layout" style={{ marginBottom: 0, alignItems: 'stretch' }}>
-            <div className="compare-card">
-              {p1data ? (
-                <div className="compare-player-header">
-                  <Avatar name={p1data.name} gradient="linear-gradient(135deg, var(--cyan), #0099bb)" />
-                  <div className="compare-name">{p1data.name}</div>
-                  <div className="compare-meta">{p1data.team} · {p1data.position} · Age {p1data.age}</div>
-                </div>
-              ) : player1 ? (
-                <div className="loading" style={{ minHeight: 100 }}>
-                  <div className="spinner" />
-                </div>
-              ) : (
-                <div className="empty" style={{ padding: 40 }}>Search for Player 1</div>
-              )}
-            </div>
-
-            <div className="compare-vs">VS</div>
-
-            <div className="compare-card">
-              {p2data ? (
-                <div className="compare-player-header">
-                  <Avatar name={p2data.name} gradient="linear-gradient(135deg, var(--purple), #6b21a8)" />
-                  <div className="compare-name">{p2data.name}</div>
-                  <div className="compare-meta">{p2data.team} · {p2data.position} · Age {p2data.age}</div>
-                </div>
-              ) : player2 ? (
-                <div className="loading" style={{ minHeight: 100 }}>
-                  <div className="spinner" />
-                </div>
-              ) : (
-                <div className="empty" style={{ padding: 40 }}>Search for Player 2</div>
-              )}
-            </div>
+      {p1 && p2 && d1 && d2 && (
+        <div className="card">
+          <div className="card-title">
+            <span style={{ color: 'var(--green)' }}>{p1.name}</span>
+            <span style={{ color: 'var(--text-3)', margin: '0 8px' }}>vs</span>
+            <span style={{ color: 'var(--purple)' }}>{p2.name}</span>
           </div>
-
-          {/* Stats comparison */}
-          {p1data && p2data && (
-            <div className="card" style={{ marginTop: 20 }}>
-              <div className="card-title">
-                <span style={{ color: 'var(--cyan)' }}>📊</span> Head-to-Head Stats
-              </div>
-              {STAT_KEYS.map(({ key, label }) => (
-                <StatBar
-                  key={key}
-                  label={label}
-                  v1={p1data[key] != null ? Number(p1data[key]) : null}
-                  v2={p2data[key] != null ? Number(p2data[key]) : null}
-                  max={getMax(key)}
-                />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div>
+              {STATS.slice(0, 6).map(s => (
+                <StatBar key={s.key} label={s.label}
+                  v1={s.format(d1[s.key])} v2={s.format(d2[s.key])} />
               ))}
             </div>
-          )}
-        </>
+            <div>
+              {STATS.slice(6).map(s => (
+                <StatBar key={s.key} label={s.label}
+                  v1={s.format(d1[s.key])} v2={s.format(d2[s.key])} />
+              ))}
+              {/* Summary */}
+              <div style={{ marginTop: 20, padding: 12, background: 'var(--bg-card2)', borderRadius: 8 }}>
+                {[
+                  { label: 'Better in Goals', val: (d1.goals || 0) >= (d2.goals || 0) ? p1.name : p2.name, color: (d1.goals || 0) >= (d2.goals || 0) ? 'var(--green)' : 'var(--purple)' },
+                  { label: 'Better in Assists', val: (d1.assists || 0) >= (d2.assists || 0) ? p1.name : p2.name, color: (d1.assists || 0) >= (d2.assists || 0) ? 'var(--green)' : 'var(--purple)' },
+                  { label: 'More Minutes', val: (d1.minutes || 0) >= (d2.minutes || 0) ? p1.name : p2.name, color: (d1.minutes || 0) >= (d2.minutes || 0) ? 'var(--green)' : 'var(--purple)' },
+                ].map(s => (
+                  <div key={s.label} className="mini-stat-row">
+                    <span className="mini-stat-label">{s.label}</span>
+                    <span style={{ color: s.color, fontWeight: 700, fontSize: '0.72rem' }}>{s.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

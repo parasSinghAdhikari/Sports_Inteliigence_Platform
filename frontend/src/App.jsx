@@ -9,15 +9,15 @@ import MatchIntelligence from './pages/MatchIntelligence'
 import Predictions from './pages/Predictions'
 import Live from './pages/Live'
 
-const PAGES = [
-  { id: 'dashboard',    label: 'Dashboard',    icon: '⚡' },
-  { id: 'players',      label: 'Players',      icon: '👤' },
-  { id: 'teams',        label: 'Teams',        icon: '🛡️' },
-  { id: 'compare',      label: 'Compare',      icon: '⚖️' },
-  { id: 'scouting',     label: 'Scouting',     icon: '🔭' },
-  { id: 'intel',        label: 'Matches',      icon: '🏆' },
-  { id: 'predictions',  label: 'Predict',      icon: '🔮' },
-  { id: 'live',         label: 'Fixtures',     icon: '📅' },
+const NAV = [
+  { id: 'dashboard',   label: 'Dashboard',         icon: '⊞' },
+  { id: 'players',     label: 'Players',            icon: '👤' },
+  { id: 'teams',       label: 'Teams',              icon: '🛡' },
+  { id: 'compare',     label: 'Compare',            icon: '⚖' },
+  { id: 'scouting',    label: 'Scouting',           icon: '🔭' },
+  { id: 'intel',       label: 'Match Intelligence', icon: '📊' },
+  { id: 'predictions', label: 'Predictions',        icon: '🔮' },
+  { id: 'live',        label: 'Fixtures',           icon: '📅' },
 ]
 
 export default function App() {
@@ -25,36 +25,53 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard />
-      case 'players':   return <Players />
-      case 'teams':     return <Teams />
-      case 'compare':   return <Compare />
-      case 'scouting':  return <Scouting />
-      case 'intel':        return <MatchIntelligence />
-      case 'predictions':  return <Predictions />
-      case 'live':         return <Live />
-      default:             return <Dashboard />
+      case 'dashboard':   return <Dashboard />
+      case 'players':     return <Players />
+      case 'teams':       return <Teams />
+      case 'compare':     return <Compare />
+      case 'scouting':    return <Scouting />
+      case 'intel':       return <MatchIntelligence />
+      case 'predictions': return <Predictions />
+      case 'live':        return <Live />
+      default:            return <Dashboard />
     }
   }
 
   return (
     <div className="app">
-      <nav className="navbar">
-        <div className="navbar-logo">SPORTS<span>IQ</span></div>
-        <div className="navbar-links">
-          {PAGES.map(p => (
+      {/* ── Sidebar ── */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">⚽</div>
+          <div className="sidebar-logo-text">
+            SPORTS<br /><span>INTELLIGENCE</span>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          <div className="sidebar-section-label">Main</div>
+          {NAV.map(item => (
             <button
-              key={p.id}
-              className={`nav-link ${page === p.id ? 'active' : ''}`}
-              onClick={() => setPage(p.id)}
+              key={item.id}
+              className={`nav-item ${page === item.id ? 'active' : ''}`}
+              onClick={() => setPage(item.id)}
             >
-              <span>{p.icon}</span> {p.label}
+              <span className="nav-item-icon">{item.icon}</span>
+              <span>{item.label}</span>
             </button>
           ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="sidebar-tag">
+            <span className="dot" />
+            <span>Live 2024-25</span>
+          </div>
         </div>
-        <div className="navbar-badge">● LIVE 2024-25</div>
-      </nav>
-      <main className="main-content">
+      </aside>
+
+      {/* ── Main ── */}
+      <main className="main-content page-enter">
         {renderPage()}
       </main>
     </div>

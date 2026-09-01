@@ -6,7 +6,7 @@ router = APIRouter()
 
 @router.get("/")
 def list_players(
-    limit: int = Query(20, le=100),
+    limit: int = Query(20, le=600),
     offset: int = 0,
     search: str = Query(None),
     team: str = Query(None),
@@ -33,7 +33,8 @@ def list_players(
         cur.execute(f"""
             SELECT p.id, p.name, t.name AS team, p.position, p.age, p.nationality,
                    pss.goals, pss.assists, pss.minutes, pss.goals_per90,
-                   pss.assists_per90, pss.goal_contributions_per90
+                   pss.assists_per90, pss.goal_contributions_per90,
+                   pss.goals_plus_assists
             FROM players p
             JOIN teams t ON t.id = p.team_id
             LEFT JOIN player_season_stats pss ON pss.player_id = p.id
