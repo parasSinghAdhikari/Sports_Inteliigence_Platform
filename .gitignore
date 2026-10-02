@@ -54,7 +54,7 @@ npm-debug.log*
 Thumbs.db
 
 # ML models (training artifacts — regenerable via scripts/train_model.py)
-ml/models/
+# ml/models/ (commented out to allow pushing to production)
 
 # Logs
 logs/

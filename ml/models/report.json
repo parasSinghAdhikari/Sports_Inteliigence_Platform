@@ -1,0 +1,54 @@
+{
+  "trained_at": "2026-08-12T07:04:42.078974+00:00",
+  "feature_count": 38,
+  "n_train": 250,
+  "n_val": 70,
+  "n_test": 60,
+  "classifier": {
+    "model": "GradientBoostingClassifier(calibrated)",
+    "baseline": "LogisticRegression",
+    "accuracy": 0.4,
+    "balanced_accuracy": 0.3511241174284652,
+    "log_loss": 1.0741541771516592,
+    "baseline_accuracy": 0.4,
+    "lr_accuracy": 0.36666666666666664,
+    "class_distribution": {
+      "0": 0.40789473684210525,
+      "1": 0.24473684210526317,
+      "2": 0.3473684210526316
+    },
+    "confusion_matrix": [
+      [
+        13,
+        9,
+        2
+      ],
+      [
+        9,
+        1,
+        3
+      ],
+      [
+        7,
+        6,
+        10
+      ]
+    ]
+  },
+  "goals": {
+    "home": {
+      "mae": 0.9298420263236887,
+      "rmse": 1.196409912563952,
+      "pearson_r": 0.3083808489295111,
+      "mean_predicted": 1.2537147301687663,
+      "mean_actual": 1.4333333333333333
+    },
+    "away": {
+      "mae": 0.8360607852382912,
+      "rmse": 1.005578372754873,
+      "pearson_r": 0.2590085986899191,
+      "mean_predicted": 1.3431027886748221,
+      "mean_actual": 1.3
+    }
+  }
+}

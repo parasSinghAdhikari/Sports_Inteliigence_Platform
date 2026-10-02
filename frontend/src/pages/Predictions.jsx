@@ -84,8 +84,11 @@ export default function Predictions() {
 
   useEffect(() => {
     fetch(`${API}/predictions/report`)
-      .then(r => r.json())
-      .then(d => setReport(d))
+      .then(r => {
+        if (!r.ok) throw new Error('Model not trained')
+        return r.json()
+      })
+      .then(d => { setReport(d); setModelOk(true) })
       .catch(() => setModelOk(false))
     predict('Arsenal', 'Liverpool')
   }, [])
@@ -93,9 +96,12 @@ export default function Predictions() {
   const predict = (h, a) => {
     setLoading(true)
     fetch(`${API}/predictions/match?home=${encodeURIComponent(h)}&away=${encodeURIComponent(a)}`)
-      .then(r => r.json())
-      .then(d => { setResult(d); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(r => {
+        if (!r.ok) throw new Error('Model not trained')
+        return r.json()
+      })
+      .then(d => { setResult(d); setLoading(false); setModelOk(true) })
+      .catch(() => { setLoading(false); setModelOk(false); setResult(null) })
   }
 
   const probs = result?.probabilities || {}
