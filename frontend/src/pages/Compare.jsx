@@ -97,23 +97,24 @@ function SearchBox({ label, color, value, setValue, result, setResult, index }) 
 }
 
 function StatBar({ label, v1, v2, color1 = 'var(--green)', color2 = 'var(--purple)' }) {
-  const n1 = parseFloat(v1) || 0
-  const n2 = parseFloat(v2) || 0
+  // Strip commas before parsing (e.g., "2,756" -> 2756)
+  const n1 = parseFloat(String(v1).replace(/,/g, '')) || 0
+  const n2 = parseFloat(String(v2).replace(/,/g, '')) || 0
   const total = n1 + n2
   const pct1 = total > 0 ? (n1 / total) * 100 : 50
   const pct2 = 100 - pct1
   const winner = n1 > n2 ? 1 : n2 > n1 ? 2 : 0
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: '0.75rem' }}>
-        <span style={{ fontWeight: winner === 1 ? 700 : 400, color: winner === 1 ? color1 : 'var(--text-2)' }}>{v1 ?? '–'}</span>
-        <span style={{ fontSize: '0.65rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.8 }}>{label}</span>
-        <span style={{ fontWeight: winner === 2 ? 700 : 400, color: winner === 2 ? color2 : 'var(--text-2)' }}>{v2 ?? '–'}</span>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.8rem' }}>
+        <span style={{ fontWeight: winner === 1 ? 800 : 500, color: winner === 1 ? color1 : 'var(--text-1)' }}>{v1 ?? '–'}</span>
+        <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontWeight: winner === 2 ? 800 : 500, color: winner === 2 ? color2 : 'var(--text-1)' }}>{v2 ?? '–'}</span>
       </div>
-      <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', gap: 2 }}>
-        <div style={{ width: `${pct1}%`, background: winner === 1 ? color1 : `${color1}55`, borderRadius: '3px 0 0 3px', transition: 'width 0.5s' }} />
-        <div style={{ width: `${pct2}%`, background: winner === 2 ? color2 : `${color2}55`, borderRadius: '0 3px 3px 0', transition: 'width 0.5s' }} />
+      <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 3, background: 'var(--bg-card2)' }}>
+        <div style={{ width: `${pct1}%`, background: color1, opacity: winner === 1 || winner === 0 ? 1 : 0.25, transition: 'width 0.5s' }} />
+        <div style={{ width: `${pct2}%`, background: color2, opacity: winner === 2 || winner === 0 ? 1 : 0.25, transition: 'width 0.5s' }} />
       </div>
     </div>
   )
@@ -164,38 +165,31 @@ export default function Compare() {
       )}
 
       {p1 && p2 && d1 && d2 && (
-        <div className="card">
-          <div className="card-title">
+        <div className="card" style={{ maxWidth: 700, margin: '0 auto' }}>
+          <div className="card-title" style={{ textAlign: 'center', marginBottom: 24, fontSize: '1.1rem' }}>
             <span style={{ color: 'var(--green)' }}>{p1.name}</span>
-            <span style={{ color: 'var(--text-3)', margin: '0 8px' }}>vs</span>
+            <span style={{ color: 'var(--text-3)', margin: '0 12px' }}>vs</span>
             <span style={{ color: 'var(--purple)' }}>{p2.name}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            <div>
-              {STATS.slice(0, 6).map(s => (
-                <StatBar key={s.key} label={s.label}
-                  v1={s.format(d1[s.key])} v2={s.format(d2[s.key])} />
-              ))}
-            </div>
-            <div>
-              {STATS.slice(6).map(s => (
-                <StatBar key={s.key} label={s.label}
-                  v1={s.format(d1[s.key])} v2={s.format(d2[s.key])} />
-              ))}
-              {/* Summary */}
-              <div style={{ marginTop: 20, padding: 12, background: 'var(--bg-card2)', borderRadius: 8 }}>
-                {[
-                  { label: 'Better in Goals', val: (d1.goals || 0) >= (d2.goals || 0) ? p1.name : p2.name, color: (d1.goals || 0) >= (d2.goals || 0) ? 'var(--green)' : 'var(--purple)' },
-                  { label: 'Better in Assists', val: (d1.assists || 0) >= (d2.assists || 0) ? p1.name : p2.name, color: (d1.assists || 0) >= (d2.assists || 0) ? 'var(--green)' : 'var(--purple)' },
-                  { label: 'More Minutes', val: (d1.minutes || 0) >= (d2.minutes || 0) ? p1.name : p2.name, color: (d1.minutes || 0) >= (d2.minutes || 0) ? 'var(--green)' : 'var(--purple)' },
-                ].map(s => (
-                  <div key={s.label} className="mini-stat-row">
-                    <span className="mini-stat-label">{s.label}</span>
-                    <span style={{ color: s.color, fontWeight: 700, fontSize: '0.72rem' }}>{s.val}</span>
-                  </div>
-                ))}
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {STATS.map(s => (
+              <StatBar key={s.key} label={s.label} v1={s.format(d1[s.key])} v2={s.format(d2[s.key])} />
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div style={{ marginTop: 24, padding: 16, background: 'var(--bg-card2)', borderRadius: 8, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'center' }}>
+            {[
+              { label: 'Better in Goals', val: (d1.goals || 0) >= (d2.goals || 0) ? p1.name : p2.name, color: (d1.goals || 0) >= (d2.goals || 0) ? 'var(--green)' : 'var(--purple)' },
+              { label: 'Better in Assists', val: (d1.assists || 0) >= (d2.assists || 0) ? p1.name : p2.name, color: (d1.assists || 0) >= (d2.assists || 0) ? 'var(--green)' : 'var(--purple)' },
+              { label: 'More Minutes', val: (d1.minutes || 0) >= (d2.minutes || 0) ? p1.name : p2.name, color: (d1.minutes || 0) >= (d2.minutes || 0) ? 'var(--green)' : 'var(--purple)' },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{s.label}</div>
+                <div style={{ color: s.color, fontWeight: 800, fontSize: '0.9rem' }}>{s.val}</div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
