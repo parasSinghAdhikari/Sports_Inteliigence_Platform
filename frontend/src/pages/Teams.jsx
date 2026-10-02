@@ -175,8 +175,19 @@ export default function Teams() {
       fetch(`${API}/teams/`).then(r => r.json()),
       fetch(`${API}/teams/table`).then(r => r.json()),
     ]).then(([td, tbl]) => {
-      setTeams(td.teams || [])
-      setTable(tbl.table || [])
+      const tableData = tbl.table || []
+      const mergedTeams = (td.teams || []).map(t => {
+        const tr = tableData.find(row => row.team === t.name)
+        return {
+          ...t,
+          points: tr?.points,
+          goal_diff: tr?.goal_diff,
+          goals_against: tr?.goals_against,
+          league_position: tr ? tableData.indexOf(tr) + 1 : null
+        }
+      })
+      setTeams(mergedTeams)
+      setTable(tableData)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
