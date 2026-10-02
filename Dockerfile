@@ -1,19 +1,20 @@
-# Railway Backend Dockerfile — FastAPI only (no nginx)
+# Railway Backend Dockerfile — FastAPI only
 FROM python:3.12-slim
 
-WORKDIR /app
-
 # Install dependencies
+WORKDIR /app
 COPY requirements.prod.txt .
 RUN pip install --no-cache-dir -r requirements.prod.txt
 
-# Copy backend source
+# Copy backend source and ml directory
 COPY backend/ ./backend/
+COPY ml/ ./ml/
 
-# Set Python path so "from app.xxx import" works
-ENV PYTHONPATH=backend
+# Switch into backend so Python finds the "app" package directly
+# (uvicorn app.main:app resolves to /app/backend/app/main.py)
+WORKDIR /app/backend
 
-# Railway injects $PORT at runtime — default 8000 for local docker run
 EXPOSE 8000
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --app-dir backend
+# Railway injects $PORT at runtime
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
