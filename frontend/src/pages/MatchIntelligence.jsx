@@ -216,25 +216,41 @@ export default function MatchIntelligence() {
           </div>
           {h2hData && (
             <>
-              <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', height: 24, marginBottom: 16 }}>
-                {[
-                  { label: `${h2hData.record.team1_wins}W`, flex: h2hData.record.team1_wins||0.3, color: 'var(--green)' },
-                  { label: `${h2hData.record.draws}D`,      flex: h2hData.record.draws||0.3,      color: 'var(--bg-hover)' },
-                  { label: `${h2hData.record.team2_wins}W`, flex: h2hData.record.team2_wins||0.3, color: 'var(--purple)' },
-                ].map((s, i) => (
-                  <div key={i} style={{ flex: s.flex, background: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#000', minWidth: s.flex > 0 ? 28 : 0 }}>
-                    {s.flex > 0.3 ? s.label : ''}
+              {(() => {
+                const r = h2hData.record;
+                const total = r.team1_wins + r.draws + r.team2_wins;
+                if (total === 0) return <div style={{ padding: '20px 0', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-3)' }}>No previous matches between these teams.</div>;
+                
+                return (
+                  <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', height: 28, marginBottom: 20 }}>
+                    {[
+                      { val: r.team1_wins, label: `${r.team1_wins} W`, bg: 'var(--green)', color: '#fff' },
+                      { val: r.draws,      label: `${r.draws} D`,      bg: 'var(--bg-hover)', color: 'var(--text-2)' },
+                      { val: r.team2_wins, label: `${r.team2_wins} W`, bg: 'var(--purple)', color: '#fff' },
+                    ].map((s, i) => (
+                      s.val > 0 && (
+                        <div key={i} style={{ 
+                          width: `${(s.val / total) * 100}%`, background: s.bg, color: s.color, 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                          fontSize: '0.75rem', fontWeight: 800, textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                        }}>
+                          {s.label}
+                        </div>
+                      )
+                    ))}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
               {h2hData.matches.map((m, i) => {
                 const hw = m.home_score > m.away_score, aw = m.away_score > m.home_score
+                const hColor = m.home_team === h2hT1 ? 'var(--green)' : m.home_team === h2hT2 ? 'var(--purple)' : 'var(--text-1)'
+                const aColor = m.away_team === h2hT1 ? 'var(--green)' : m.away_team === h2hT2 ? 'var(--purple)' : 'var(--text-1)'
                 return (
                   <div key={i} className="match-row">
                     <span className="match-week">W{m.matchweek}</span>
-                    <span className="match-team home" style={{ fontWeight: hw?700:400 }}>{m.home_team}</span>
+                    <span className="match-team home" style={{ fontWeight: hw?700:400, color: hColor }}>{m.home_team}</span>
                     <span className="match-score">{m.home_score}–{m.away_score}</span>
-                    <span className="match-team" style={{ fontWeight: aw?700:400 }}>{m.away_team}</span>
+                    <span className="match-team" style={{ fontWeight: aw?700:400, color: aColor }}>{m.away_team}</span>
                   </div>
                 )
               })}
