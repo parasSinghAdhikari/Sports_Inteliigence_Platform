@@ -5,15 +5,16 @@ services:
   backend:
     build:
       context: .
+      dockerfile: Dockerfile.local   # full multi-stage build for local compose
       target: backend
     image: sportsiq-backend:latest
     container_name: sportsiq-backend
     restart: unless-stopped
-    env_file: .env          # loads DATABASE_URL and optional FOOTBALL_DATA_API_KEY
+    env_file: .env
     environment:
       - PORT=8000
     ports:
-      - "8000:8000"         # exposed for direct API access / Swagger UI
+      - "8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -25,9 +26,9 @@ services:
   frontend:
     build:
       context: .
+      dockerfile: Dockerfile.local   # same multi-stage, nginx final stage
       target: frontend
       args:
-        # Empty = frontend uses Vite proxy via /api/ (same-origin)
         VITE_API_URL: ""
     image: sportsiq-frontend:latest
     container_name: sportsiq-frontend
