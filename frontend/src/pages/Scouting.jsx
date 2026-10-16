@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import RadarChart from '../components/RadarChart'
+import { useRadar } from '../hooks/useRadar'
 
 const API = '/api'
 
@@ -6,6 +8,8 @@ function ScoreBadge({ score }) {
   const cls = score >= 40 ? 'elite' : score >= 25 ? 'good' : 'avg'
   return <div className={`scout-badge ${cls}`}>{score}</div>
 }
+
+// ── Similar Players Modal ───────────────────────────────────────────────────
 
 function SimilarModal({ player, onClose }) {
   const [data, setData] = useState(null)
@@ -55,10 +59,74 @@ function SimilarModal({ player, onClose }) {
   )
 }
 
+// ── Player Radar Modal ──────────────────────────────────────────────────────
+
+function RadarModal({ player, onClose }) {
+  const { radarData, cohort, season, warning, loading, error } = useRadar(player.id)
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '1rem' }}>
+              📡 {player.name}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginTop: 2 }}>
+              {player.team} · {player.position} · Age {player.age}
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {loading && <div className="loading"><div className="spinner" /> Calculating percentiles...</div>}
+        {error   && <div style={{ padding: 20, color: 'var(--red)', fontSize: '0.8rem' }}>⚠ {error}</div>}
+
+        {!loading && !error && radarData.length > 0 && (
+          <>
+            <RadarChart
+              data={radarData}
+              player1={{ name: player.name, color: '#10b981' }}
+              cohort={cohort}
+              season={season}
+              warning={warning}
+            />
+            {/* Compact metric table */}
+            <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              {radarData.map(m => (
+                <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--text-2)' }}>{m.label}</span>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>
+                      {m.p1Value != null ? m.p1Value.toFixed(2) : '—'}{m.unit}
+                    </span>
+                    <span style={{
+                      minWidth: 36, textAlign: 'right', fontWeight: 700,
+                      color: m.p1Pct >= 75 ? 'var(--green)' : m.p1Pct >= 50 ? 'var(--cyan)' : m.p1Pct >= 25 ? 'var(--yellow)' : 'var(--red)',
+                    }}>
+                      {m.p1Pct != null ? `${m.p1Pct}th` : '—'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <button onClick={onClose} className="btn btn-ghost" style={{ marginTop: 16, width: '100%', justifyContent: 'center' }}>Close</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ───────────────────────────────────────────────────────────────
+
 export default function Scouting() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(false)
   const [similar, setSimilar] = useState(null)
+  const [radarPlayer, setRadarPlayer] = useState(null)
+  const [modalMode, setModalMode] = useState(null)   // 'similar' | 'radar'
 
   // Filters
   const [position, setPosition] = useState('FW')
@@ -68,11 +136,7 @@ export default function Scouting() {
 
   const search = () => {
     setLoading(true)
-    const params = new URLSearchParams({
-      limit,
-      max_age: maxAge,
-      min_minutes: minMins,
-    })
+    const params = new URLSearchParams({ limit, max_age: maxAge, min_minutes: minMins })
     if (position !== 'All') params.set('position', position)
     fetch(`${API}/scouting/scout-score?${params}`)
       .then(r => r.json())
@@ -82,14 +146,19 @@ export default function Scouting() {
 
   useEffect(() => { search() }, [])
 
+  const openSimilar = (p) => { setSimilar(p); setModalMode('similar') }
+  const openRadar   = (p) => { setRadarPlayer(p); setModalMode('radar') }
+  const closeModal  = () => { setSimilar(null); setRadarPlayer(null); setModalMode(null) }
+
   return (
     <div className="page-enter">
-      {similar && <SimilarModal player={similar} onClose={() => setSimilar(null)} />}
+      {modalMode === 'similar' && similar  && <SimilarModal player={similar}     onClose={closeModal} />}
+      {modalMode === 'radar'   && radarPlayer && <RadarModal  player={radarPlayer} onClose={closeModal} />}
 
       <div className="page-header">
         <div>
           <div className="page-title">Scouting</div>
-          <div className="page-subtitle">Find players by Scout Score · Composite 0-100 rating</div>
+          <div className="page-subtitle">Find players by Scout Score · 📡 Radar · Similar player engine</div>
         </div>
       </div>
 
@@ -114,9 +183,9 @@ export default function Scouting() {
           </div>
 
           {[
-            { label: 'Max Age',      val: maxAge,   setVal: setMaxAge,  min: 17, max: 40, step: 1 },
-            { label: 'Min Minutes',  val: minMins,  setVal: setMinMins, min: 0,  max: 3420, step: 90 },
-            { label: 'Results',      val: limit,    setVal: setLimit,   min: 5,  max: 50, step: 5 },
+            { label: 'Max Age',     val: maxAge,  setVal: setMaxAge,  min: 17, max: 40, step: 1 },
+            { label: 'Min Minutes', val: minMins, setVal: setMinMins, min: 0,  max: 3420, step: 90 },
+            { label: 'Results',     val: limit,   setVal: setLimit,   min: 5,  max: 50, step: 5 },
           ].map(f => (
             <div key={f.label} style={{ marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
@@ -126,6 +195,7 @@ export default function Scouting() {
               <input type="range" min={f.min} max={f.max} step={f.step}
                 value={f.val} onChange={e => f.setVal(+e.target.value)}
                 style={{ width: '100%', accentColor: 'var(--green)' }}
+                aria-label={f.label}
               />
             </div>
           ))}
@@ -137,14 +207,14 @@ export default function Scouting() {
 
         {/* Results Panel */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>
               <span className="ct-icon">🔭</span>
               Top Matching Players
               <span className="ct-badge">{players.length} found</span>
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>
-              Stats: G/90 · A/90 · Key Passes/90 | Click → Similar Players
+              📡 Radar · 👥 Similar
             </div>
           </div>
 
@@ -168,11 +238,12 @@ export default function Scouting() {
                   <th>G+A/90</th>
                   <th>Min</th>
                   <th>Score</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {players.map((p, i) => (
-                  <tr key={p.id} onClick={() => setSimilar(p)}>
+                  <tr key={p.id}>
                     <td className="dim">{i + 1}</td>
                     <td>
                       <div className="player-name-row">
@@ -189,8 +260,24 @@ export default function Scouting() {
                     <td>{p.assists_per90}</td>
                     <td style={{ color: 'var(--yellow)', fontWeight: 600 }}>{p.goal_contributions_per90}</td>
                     <td className="dim">{p.minutes?.toLocaleString()}</td>
+                    <td><ScoreBadge score={p.scout_score} /></td>
                     <td>
-                      <ScoreBadge score={p.scout_score} />
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          onClick={() => openRadar(p)}
+                          title="View Percentile Radar"
+                          aria-label={`View radar chart for ${p.name}`}
+                          style={{ background: 'var(--green-dim)', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 700 }}>
+                          📡
+                        </button>
+                        <button
+                          onClick={() => openSimilar(p)}
+                          title="Find similar players"
+                          aria-label={`Find players similar to ${p.name}`}
+                          style={{ background: 'var(--bg-hover)', border: 'none', borderRadius: 5, padding: '3px 7px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--text-2)', fontWeight: 700 }}>
+                          👥
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
